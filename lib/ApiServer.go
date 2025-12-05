@@ -55,9 +55,12 @@ func KillBrowserInstance(mu *sync.RWMutex, instanceCloseMap map[string]func() er
 	url := r.URL.Query().Get("url")
 
 	// Kill instance
-	mu.Lock()
-	if instanceCloseFunc, ok := instanceCloseMap[url]; ok {
+	instanceCloseFunc, ok := instanceCloseMap[url]
+	if ok {
+		// Found
 		if err := instanceCloseFunc(); err != nil {
+			mu.Lock()
+			delete(instanceCloseMap, url)
 			mu.Unlock()
 			response := Response{
 				Success: false,
@@ -66,9 +69,15 @@ func KillBrowserInstance(mu *sync.RWMutex, instanceCloseMap map[string]func() er
 			json.NewEncoder(w).Encode(response)
 			return
 		}
-		delete(instanceCloseMap, url)
+	} else {
+		// Not Found
+		response := Response{
+			Success: false,
+			Message: "Instance not found",
+		}
+		json.NewEncoder(w).Encode(response)
+		return
 	}
-	mu.Unlock()
 
 	response := Response{
 		Success: true,
