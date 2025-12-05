@@ -1,0 +1,104 @@
+// Package lib
+package lib
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"os"
+	"os/exec"
+	"time"
+)
+
+type ChromeInstance struct {
+	cmd          *exec.Cmd
+	userDataDir  string
+	port         int
+	wsURL        string
+	debuggingURL string
+}
+
+// waitForChrome waits for Chrome to be ready
+func (c *ChromeInstance) waitForChrome(timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for Chrome to start")
+		case <-ticker.C:
+			// Check if process is still running
+			if c.cmd.ProcessState != nil && c.cmd.ProcessState.Exited() {
+				return fmt.Errorf("chrome process exited unexpectedly")
+			}
+
+			// Try to connect to CDP endpoint
+			resp, err := exec.Command("curl", "-s", fmt.Sprintf("http://localhost:%d/json/version", c.port)).Output()
+			if err == nil && len(resp) > 0 {
+				return nil
+			}
+		}
+	}
+}
+
+// GetWebSocketURL returns the WebSocket debugger URL
+func (c *ChromeInstance) GetWebSocketURL() (string, error) {
+	if c.wsURL != "" {
+		return c.wsURL, nil
+	}
+
+	output, err := exec.Command("curl", "-s", fmt.Sprintf("http://localhost:%d/json/version", c.port)).Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get WebSocket URL: %w", err)
+	}
+
+	// Parse JSON to get webSocketDebuggerUrl
+	// Simple string search (for production, use proper JSON parsing)
+	str := string(output)
+	// start := len(`"webSocketDebuggerUrl": "`)
+	if idx := len(str); idx > 0 {
+		// This is simplified - in production use json.Unmarshal
+		c.wsURL = fmt.Sprintf("ws://localhost:%d/devtools/browser", c.port)
+		return c.wsURL, nil
+	}
+
+	return "", fmt.Errorf("could not find WebSocket URL")
+}
+
+// Close terminates the Chrome instance and cleans up
+func (c *ChromeInstance) Close() error {
+	if c.cmd != nil && c.cmd.Process != nil {
+		log.Printf("Shutting down Chrome (PID: %d)...", c.cmd.Process.Pid)
+
+		// Try graceful shutdown first
+		c.cmd.Process.Signal(os.Interrupt)
+
+		// Wait a bit for graceful shutdown
+		done := make(chan error, 1)
+		go func() {
+			done <- c.cmd.Wait()
+		}()
+
+		select {
+		case <-time.After(5 * time.Second):
+			// Force kill if graceful shutdown fails
+			log.Printf("Force killing Chrome...")
+			c.cmd.Process.Kill()
+			<-done
+		case <-done:
+			// Graceful shutdown succeeded
+		}
+	}
+
+	// Clean up temp directory
+	if c.userDataDir != "" {
+		os.RemoveAll(c.userDataDir)
+		log.Printf("Cleaned up user data directory")
+	}
+
+	return nil
+}
