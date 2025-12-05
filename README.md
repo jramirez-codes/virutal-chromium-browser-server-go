@@ -1,4 +1,4 @@
-# Google Browser Go
+# Virtual Browser Go
 
 A high-performance, scalable solution for managing headless Chrome instances using Go and Nginx. This project provides a robust infrastructure for browser automation, scraping, and testing workflows by exposing Chrome DevTools Protocol (CDP) via WebSocket proxying.
 
