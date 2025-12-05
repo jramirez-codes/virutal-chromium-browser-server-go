@@ -76,8 +76,8 @@ func LaunchChrome(port int, headless bool) (*ChromeInstance, error) {
 	// Chrome arguments
 	args := []string{
 		fmt.Sprintf("--remote-debugging-port=%d", port),
-		// "--no-sandbox",
-		// "--log-level=3",
+		"--no-sandbox",
+		"--log-level=3",
 		"--no-first-run",
 		"--no-default-browser-check",
 		"--disable-background-networking",
@@ -89,7 +89,7 @@ func LaunchChrome(port int, headless bool) (*ChromeInstance, error) {
 		"--disable-default-apps",
 		"--disable-dev-shm-usage",
 		"--disable-extensions",
-		"--disable-features=TranslateUI",
+		"--disable-features=TranslateUI,GCM",
 		"--disable-hang-monitor",
 		"--disable-ipc-flooding-protection",
 		"--disable-popup-blocking",
