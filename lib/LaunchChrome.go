@@ -76,6 +76,8 @@ func LaunchChrome(port int, headless bool) (*ChromeInstance, error) {
 	// Chrome arguments
 	args := []string{
 		fmt.Sprintf("--remote-debugging-port=%d", port),
+		// "--no-sandbox",
+		// "--log-level=3",
 		"--no-first-run",
 		"--no-default-browser-check",
 		"--disable-background-networking",
