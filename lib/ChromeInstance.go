@@ -3,6 +3,7 @@ package lib
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -11,11 +12,10 @@ import (
 )
 
 type ChromeInstance struct {
-	cmd          *exec.Cmd
-	userDataDir  string
-	port         int
-	wsURL        string
-	debuggingURL string
+	cmd         *exec.Cmd
+	userDataDir string
+	port        int
+	wsURL       string
 }
 
 // waitForChrome waits for Chrome to be ready
@@ -56,17 +56,21 @@ func (c *ChromeInstance) GetWebSocketURL() (string, error) {
 		return "", fmt.Errorf("failed to get WebSocket URL: %w", err)
 	}
 
-	// Parse JSON to get webSocketDebuggerUrl
-	// Simple string search (for production, use proper JSON parsing)
-	str := string(output)
-	// start := len(`"webSocketDebuggerUrl": "`)
-	if idx := len(str); idx > 0 {
-		// This is simplified - in production use json.Unmarshal
-		c.wsURL = fmt.Sprintf("ws://localhost:%d/devtools/browser", c.port)
-		return c.wsURL, nil
+	// Parse JSON response to extract webSocketDebuggerUrl
+	var versionInfo struct {
+		WebSocketDebuggerURL string `json:"webSocketDebuggerUrl"`
 	}
 
-	return "", fmt.Errorf("could not find WebSocket URL")
+	if err := json.Unmarshal(output, &versionInfo); err != nil {
+		return "", fmt.Errorf("failed to parse version info: %w", err)
+	}
+
+	if versionInfo.WebSocketDebuggerURL == "" {
+		return "", fmt.Errorf("webSocketDebuggerUrl not found in response")
+	}
+
+	c.wsURL = versionInfo.WebSocketDebuggerURL
+	return c.wsURL, nil
 }
 
 // Close terminates the Chrome instance and cleans up
