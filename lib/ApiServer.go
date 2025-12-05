@@ -3,6 +3,7 @@ package lib
 import (
 	"encoding/json"
 	"net/http"
+	"sync"
 )
 
 // Data models
@@ -12,7 +13,12 @@ type Response struct {
 	WsUrl   string `json:"wsUrl"`
 }
 
-// 3. GET all users
+var (
+	instanceClose = make(map[string]func() error)
+	mu            sync.RWMutex
+)
+
+// Get Browser Instance URL
 func GetBrowserInstanceUrl(ch chan string, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -29,10 +35,46 @@ func GetBrowserInstanceUrl(ch chan string, w http.ResponseWriter, r *http.Reques
 		json.NewEncoder(w).Encode(response)
 		return
 	}
+
+	// Get WebSocket URL
+	WsUrl := <-ch
+
 	response := Response{
 		Success: true,
-		Message: "Users retrieved successfully",
-		WsUrl:   <-ch,
+		Message: "Browser Instance URL retrieved successfully",
+		WsUrl:   WsUrl,
+	}
+
+	json.NewEncoder(w).Encode(response)
+}
+
+func KillBrowserInstance(ch chan string, instanceCloseMap map[string]func() error, w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	url := r.URL.Query().Get("url")
+
+	// Kill instance
+	mu.RLock()
+	if instanceCloseFunc, ok := instanceClose[url]; ok {
+		if err := instanceCloseFunc(); err != nil {
+			response := Response{
+				Success: false,
+				Message: "Failed to kill browser instance",
+			}
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		delete(instanceClose, url)
+	}
+	mu.RUnlock()
+
+	response := Response{
+		Success: true,
+		Message: "Browser Instance URL retrieved killed successfully",
 	}
 
 	json.NewEncoder(w).Encode(response)
