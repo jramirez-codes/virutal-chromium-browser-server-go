@@ -1,3 +1,4 @@
+// Browser Util
 package browserUtil
 
 import (
