@@ -6,7 +6,7 @@ import (
 	"virtual-browser/internal/types"
 )
 
-func GetBrowserInstanceUrl(ch chan string, w http.ResponseWriter, r *http.Request) {
+func GetBrowserInstanceUrl(ch *chan string, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -14,7 +14,7 @@ func GetBrowserInstanceUrl(ch chan string, w http.ResponseWriter, r *http.Reques
 
 	w.Header().Set("Content-Type", "application/json")
 
-	if len(ch) == 0 {
+	if len(*ch) == 0 {
 		response := types.ApiResponse{
 			Success: false,
 			Message: "Failed to retrieve WebSocket URL",
@@ -24,7 +24,7 @@ func GetBrowserInstanceUrl(ch chan string, w http.ResponseWriter, r *http.Reques
 	}
 
 	// Get WebSocket URL
-	WsUrl := <-ch
+	WsUrl := <-*ch
 
 	response := types.ApiResponse{
 		Success: true,

@@ -12,9 +12,9 @@ import (
 
 var (
 	instanceCloseMap = make(map[string]func() error)
-	wsUrlChannels    = make(chan string)
 	mu               sync.RWMutex
 )
+var wsUrlChannels = make(chan string)
 
 func CreateInstance() (*browser.ChromeInstance, error) {
 	// Get Available Port
@@ -55,7 +55,7 @@ func main() {
 	// API Server - Register routes
 	apiPort := ":8080"
 	http.HandleFunc("/get", func(w http.ResponseWriter, r *http.Request) {
-		api.GetBrowserInstanceUrl(wsUrlChannels, w, r)
+		api.GetBrowserInstanceUrl(&wsUrlChannels, w, r)
 
 		// Create New Instance N+1 (Preload)
 		_, err := CreateInstance()
