@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"sync"
+	"virtual-browser/internal/types"
 )
 
 func KillBrowserInstance(mu *sync.RWMutex, instanceCloseMap map[string]func() error, w http.ResponseWriter, r *http.Request) {
@@ -23,7 +24,7 @@ func KillBrowserInstance(mu *sync.RWMutex, instanceCloseMap map[string]func() er
 			mu.Lock()
 			delete(instanceCloseMap, url)
 			mu.Unlock()
-			response := Response{
+			response := types.ApiResponse{
 				Success: false,
 				Message: "Failed to kill browser instance",
 			}
@@ -32,7 +33,7 @@ func KillBrowserInstance(mu *sync.RWMutex, instanceCloseMap map[string]func() er
 		}
 	} else {
 		// Not Found
-		response := Response{
+		response := types.ApiResponse{
 			Success: false,
 			Message: "Instance not found",
 		}
@@ -40,7 +41,7 @@ func KillBrowserInstance(mu *sync.RWMutex, instanceCloseMap map[string]func() er
 		return
 	}
 
-	response := Response{
+	response := types.ApiResponse{
 		Success: true,
 		Message: "Browser Instance URL retrieved killed successfully",
 	}

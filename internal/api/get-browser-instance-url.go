@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"virtual-browser/internal/types"
 )
 
 func GetBrowserInstanceUrl(ch chan string, w http.ResponseWriter, r *http.Request) {
@@ -14,7 +15,7 @@ func GetBrowserInstanceUrl(ch chan string, w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Content-Type", "application/json")
 
 	if len(ch) == 0 {
-		response := Response{
+		response := types.ApiResponse{
 			Success: false,
 			Message: "Failed to retrieve WebSocket URL",
 		}
@@ -25,7 +26,7 @@ func GetBrowserInstanceUrl(ch chan string, w http.ResponseWriter, r *http.Reques
 	// Get WebSocket URL
 	WsUrl := <-ch
 
-	response := Response{
+	response := types.ApiResponse{
 		Success: true,
 		Message: "Browser Instance URL retrieved successfully",
 		WsUrl:   WsUrl,
