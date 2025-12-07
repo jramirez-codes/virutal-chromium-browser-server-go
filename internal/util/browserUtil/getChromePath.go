@@ -1,4 +1,4 @@
-package browserLib
+package browserUtil
 
 import (
 	"os"
