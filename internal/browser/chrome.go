@@ -75,10 +75,10 @@ func (c *ChromeInstance) GetWebSocketURL() (string, error) {
 // Close terminates the Chrome instance and cleans up
 func (c *ChromeInstance) Close() error {
 	if c.cmd != nil && c.cmd.Process != nil {
-		fmt.Printf("Shutting down Chrome (PID: %d)...", c.cmd.Process.Pid)
+		fmt.Printf("Shutting down Chrome (PID: %d)...\n", c.cmd.Process.Pid)
 
 		// Try graceful shutdown first
-		c.cmd.Process.Signal(os.Interrupt)
+		c.cmd.Process.Signal(os.Kill)
 
 		// Wait a bit for graceful shutdown
 		done := make(chan error, 1)
@@ -86,21 +86,22 @@ func (c *ChromeInstance) Close() error {
 			done <- c.cmd.Wait()
 		}()
 
-		select {
-		case <-time.After(5 * time.Second):
-			// Force kill if graceful shutdown fails
-			fmt.Printf("Force killing Chrome...")
-			c.cmd.Process.Kill()
-			<-done
-		case <-done:
-			// Graceful shutdown succeeded
-		}
+		// WARN: Old Implementation
+		// select {
+		// case <-time.After(5 * time.Second):
+		// 	// Force kill if graceful shutdown fails
+		// 	fmt.Printf("Force killing Chrome...")
+		// 	c.cmd.Process.Kill()
+		// 	<-done
+		// case <-done:
+		// 	// Graceful shutdown succeeded
+		// }
 	}
 
 	// Clean up temp directory
 	if c.userDataDir != "" {
 		os.RemoveAll(c.userDataDir)
-		fmt.Printf("Cleaned up user data directory")
+		fmt.Printf("Cleaned up user data directory\n")
 	}
 
 	return nil
