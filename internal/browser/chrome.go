@@ -97,6 +97,8 @@ func (c *ChromeInstance) Close() error {
 		// case <-done:
 		// 	// Graceful shutdown succeeded
 		// }
+	} else {
+		log.Println("PID NOT FOUND")
 	}
 
 	// Clean up temp directory
