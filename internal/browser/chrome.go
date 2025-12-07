@@ -1,3 +1,4 @@
+// Package browser
 package browser
 
 import (
@@ -16,7 +17,7 @@ type ChromeInstance struct {
 	wsURL       string
 }
 
-// waitForChrome waits for Chrome to be ready
+// WaitForChrome waits for Chrome to be ready
 func (c *ChromeInstance) WaitForChrome(timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
