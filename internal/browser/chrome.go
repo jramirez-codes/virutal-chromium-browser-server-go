@@ -79,7 +79,7 @@ func (c *ChromeInstance) Close() error {
 		log.Printf("Shutting down Chrome (PID: %d)...\n", c.cmd.Process.Pid)
 
 		// Try graceful shutdown first
-		c.cmd.Process.Signal(os.Kill)
+		c.cmd.Process.Signal(os.Interrupt)
 
 		// Wait a bit for graceful shutdown
 		done := make(chan error, 1)
@@ -87,16 +87,15 @@ func (c *ChromeInstance) Close() error {
 			done <- c.cmd.Wait()
 		}()
 
-		// WARN: Old Implementation
-		// select {
-		// case <-time.After(5 * time.Second):
-		// 	// Force kill if graceful shutdown fails
-		// 	fmt.Printf("Force killing Chrome...")
-		// 	c.cmd.Process.Kill()
-		// 	<-done
-		// case <-done:
-		// 	// Graceful shutdown succeeded
-		// }
+		select {
+		case <-time.After(5 * time.Second):
+			// Force kill if graceful shutdown fails
+			fmt.Printf("Force killing Chrome...")
+			c.cmd.Process.Kill()
+			<-done
+		case <-done:
+			// Graceful shutdown succeeded
+		}
 	} else {
 		log.Println("PID NOT FOUND")
 	}
