@@ -24,7 +24,7 @@ func KillBrowserInstance(mu *sync.RWMutex, instanceCloseMap map[string]func() er
 			mu.Lock()
 			delete(instanceCloseMap, url)
 			mu.Unlock()
-			response := types.ApiResponse{
+			response := types.WsApiResponse{
 				Success: false,
 				Message: "Failed to kill browser instance",
 			}
@@ -33,7 +33,7 @@ func KillBrowserInstance(mu *sync.RWMutex, instanceCloseMap map[string]func() er
 		}
 	} else {
 		// Not Found
-		response := types.ApiResponse{
+		response := types.WsApiResponse{
 			Success: false,
 			Message: "Instance not found",
 		}
@@ -41,7 +41,7 @@ func KillBrowserInstance(mu *sync.RWMutex, instanceCloseMap map[string]func() er
 		return
 	}
 
-	response := types.ApiResponse{
+	response := types.WsApiResponse{
 		Success: true,
 		Message: "Browser Instance URL retrieved killed successfully",
 	}
