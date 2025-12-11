@@ -20,6 +20,10 @@ var instanceCloseMap = types.ServerInstanceClose{
 	InstanceCloseMapFunc: make(map[string]func() error),
 	Mu:                   sync.RWMutex{},
 }
+var isCreatingInstance = types.IsCreatingInstance{
+	Status: false,
+	Mu:     sync.RWMutex{},
+}
 var wsURLChannels = make(chan string, 500)
 var serverStats = types.ServerStatsResponse{
 	StartTime:                 0,
@@ -31,6 +35,11 @@ var serverStats = types.ServerStatsResponse{
 }
 
 func CreateInstance() (*browser.ChromeInstance, error) {
+	// Set Creating Instance
+	isCreatingInstance.Mu.Lock()
+	isCreatingInstance.Status = true
+	isCreatingInstance.Mu.Unlock()
+
 	// Get Available Port
 	startPort, err := util.GetPort()
 	if err != nil {
@@ -55,6 +64,11 @@ func CreateInstance() (*browser.ChromeInstance, error) {
 	instanceCloseMap.InstanceCloseMapFunc[wsURL] = instance.Close
 	instanceCloseMap.Mu.Unlock()
 
+	// Set Creating Instance
+	isCreatingInstance.Mu.Lock()
+	isCreatingInstance.Status = false
+	isCreatingInstance.Mu.Unlock()
+
 	return instance, nil
 }
 
@@ -73,14 +87,25 @@ func StartAPIServer() {
 			}
 			serverStats.Mu.RUnlock()
 
-			// Wait for CPU to be low
-			for isCpuHigh {
+			// Check if instance is already being created
+			var localIsCreatingInstance bool
+			isCreatingInstance.Mu.RLock()
+			localIsCreatingInstance = isCreatingInstance.Status
+			isCreatingInstance.Mu.RUnlock()
+
+			// Wait for CPU to be low and instance to not be being created
+			for isCpuHigh && !localIsCreatingInstance {
 				time.Sleep(time.Second * 5)
 				serverStats.Mu.RLock()
 				if serverStats.CPUUsage < 80 {
 					isCpuHigh = false
 				}
 				serverStats.Mu.RUnlock()
+
+				// Check if instance is already being created
+				isCreatingInstance.Mu.RLock()
+				localIsCreatingInstance = isCreatingInstance.Status
+				isCreatingInstance.Mu.RUnlock()
 			}
 
 			// Create New Instance N+1 (Preload)
