@@ -12,6 +12,7 @@ import (
 	"virtual-browser/internal/util"
 
 	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
 )
 
 // Global Variables
@@ -102,12 +103,19 @@ func StartAPIServer() {
 
 	// Get Server Stats
 	http.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
+		// Get Memory Usage
+		memoryInfo, err := mem.VirtualMemory()
+		if err != nil {
+			log.Printf("Failed to get memory info: %v", err)
+		}
 		// Get Live Chrome Instance Count
-		instanceCloseMap.Mu.RLock()
 		serverStats.Mu.Lock()
+		instanceCloseMap.Mu.RLock()
 		serverStats.LiveChromeInstanceCount = len(instanceCloseMap.InstanceCloseMapFunc)
-		serverStats.Mu.Unlock()
 		instanceCloseMap.Mu.RUnlock()
+
+		serverStats.MemoryUsage = int64(memoryInfo.UsedPercent)
+		serverStats.Mu.Unlock()
 
 		// Return Status
 		api.GetServerStats(&serverStats, w, r)
