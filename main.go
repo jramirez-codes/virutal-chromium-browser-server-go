@@ -11,7 +11,6 @@ import (
 	"virtual-browser/internal/types"
 	"virtual-browser/internal/util"
 
-	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
@@ -153,16 +152,8 @@ func main() {
 	// Start API Server
 	go StartAPIServer()
 
-	// Server Stats
-	go func() {
-		for {
-			percentCPU, _ := cpu.Percent(time.Second, false)
-			serverStats.Mu.Lock()
-			serverStats.CPUUsage = percentCPU[0]
-			serverStats.Mu.Unlock()
-			time.Sleep(time.Second * 2)
-		}
-	}()
+	// Start Server Stats
+	go util.StartServerStats(&serverStats, time.Second*5)
 
 	// Keep running until interrupted
 	select {}
