@@ -11,20 +11,19 @@ import (
 	"virtual-browser/internal/types"
 	"virtual-browser/internal/util"
 
-	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
-// Global Variables
-var instanceCloseMap = types.ServerInstanceClose{
-	InstanceCloseMapFunc: make(map[string]func() error),
-	Mu:                   sync.RWMutex{},
-}
 var isCreatingInstance = types.IsCreatingInstance{
 	Status: false,
 	Mu:     sync.RWMutex{},
 }
-var wsURLChannels = make(chan string, 500)
+var instancePoolFree = make(chan *browser.ChromeInstance, 500)
+var instancePoolUsed = types.InstancePoolUsed{
+	InstanceMap: make(map[string]*browser.ChromeInstance),
+	Mu:          sync.RWMutex{},
+}
+
 var serverStats = types.ServerStatsResponse{
 	StartTime:                 0,
 	CPUUsage:                  0.0,
@@ -52,17 +51,8 @@ func CreateInstance() (*browser.ChromeInstance, error) {
 		return nil, err
 	}
 
-	// Get WebSocket URL
-	wsURL, err := instance.GetWebSocketURL()
-	if err != nil {
-		return nil, err
-	}
-
-	// Add WebSocket URL to map
-	instanceCloseMap.Mu.Lock()
-	wsURLChannels <- wsURL
-	instanceCloseMap.InstanceCloseMapFunc[wsURL] = instance.Close
-	instanceCloseMap.Mu.Unlock()
+	// Add to pool
+	instancePoolFree <- instance
 
 	// Set Creating Instance
 	isCreatingInstance.Mu.Lock()
@@ -109,18 +99,15 @@ func StartAPIServer() {
 			}
 
 			// Create New Instance N+1 (Preload)
-			_, err := CreateInstance()
-			if err != nil {
-				log.Fatalf("Failed to create instance: %v", err)
-			}
+			CreateInstance()
 		}()
 
-		api.GetBrowserInstanceUrl(wsURLChannels, w, r)
+		api.GetBrowserInstanceUrl(instancePoolFree, &instancePoolUsed, w, r)
 	})
 
 	// Kill WebSocket URL
 	http.HandleFunc("/kill", func(w http.ResponseWriter, r *http.Request) {
-		api.KillBrowserInstance(&instanceCloseMap, w, r)
+		api.KillBrowserInstance(&instancePoolUsed, w, r)
 		serverStats.Mu.Lock()
 		serverStats.ServedChromeInstanceCount++
 		serverStats.Mu.Unlock()
@@ -135,9 +122,9 @@ func StartAPIServer() {
 		}
 		// Get Live Chrome Instance Count
 		serverStats.Mu.Lock()
-		instanceCloseMap.Mu.RLock()
-		serverStats.LiveChromeInstanceCount = len(instanceCloseMap.InstanceCloseMapFunc)
-		instanceCloseMap.Mu.RUnlock()
+		instancePoolUsed.Mu.RLock()
+		serverStats.LiveChromeInstanceCount = len(instancePoolUsed.InstanceMap) + len(instancePoolFree)
+		instancePoolUsed.Mu.RUnlock()
 
 		serverStats.MemoryUsage = int64(memoryInfo.UsedPercent)
 		serverStats.Mu.Unlock()
@@ -156,36 +143,17 @@ func StartAPIServer() {
 }
 
 func main() {
-	// Add WaitGroup
-	wg := &sync.WaitGroup{}
-	wg.Add(3)
-
 	// Record Start Time
 	serverStats.StartTime = time.Now().Unix()
 
 	// Create Inital Instance N+1
-	go func() {
-		_, err := CreateInstance()
-		if err != nil {
-			log.Fatalf("Failed to create instance: %v", err)
-		}
-	}()
+	go CreateInstance()
 
 	// Start API Server
 	go StartAPIServer()
 
-	// Server Stats
-	go func() {
-		for {
-			percentCPU, _ := cpu.Percent(time.Second, false)
-			serverStats.Mu.Lock()
-			serverStats.CPUUsage = percentCPU[0]
-			serverStats.Mu.Unlock()
-			time.Sleep(time.Second * 2)
-		}
-	}()
-
-	wg.Wait()
+	// Start Server Stats
+	go util.StartServerStats(&serverStats, time.Second*5)
 
 	// Keep running until interrupted
 	select {}
